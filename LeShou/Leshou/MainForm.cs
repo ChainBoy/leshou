@@ -261,13 +261,27 @@ namespace LeShou
 
         private void btn_delete_Click(object sender, EventArgs e)
         {
-            delete_data_by_page(max_delete_page_num, page_size);
+            int nead_delete_num = (int)this.num_up_dowm_delete.Value;
+            delete_data_by_num(nead_delete_num);
         }
 
-        private void delete_data()
+
+        /// <summary>
+        /// 删除x条帖子
+        /// </summary>
+        /// <param name="nead_delete_num"></param>
+        /// <returns></returns>
+        private int delete_data_by_num(int nead_delete_num)
         {
-            int nead_delete_num = (int)this.num_up_dowm_delete.Value;
             int has_delete_num = 0;
+            for (int i = 0; i < nead_delete_num; i++)
+            {
+                int delete_result = delete_data_by_page(max_delete_page_num, nead_delete_num - has_delete_num);
+                if (delete_result == -1) break;
+                has_delete_num += delete_result;
+                if (has_delete_num >= nead_delete_num) break;
+            }
+            return has_delete_num;
 
         }
 
@@ -275,7 +289,7 @@ namespace LeShou
         /// 删除某页的帖子
         /// </summary>
         /// <param name="page_num"></param>
-        private int delete_data_by_page(int page_num, int num)
+        private int delete_data_by_page(int page_num, int num = 30)
         {
             string url = delete_page_url + page_num;
             byte[] byte_result = RequestByCookie(url, webser.Document.Cookie);
@@ -283,6 +297,7 @@ namespace LeShou
             //MatchCollection match = Regex.Matches(str_html, @"page=(\d+)", RegexOptions.Singleline);
             //if (match.Count > 0) max_page = Convert.ToInt32(match[match.Count - 1].Groups[1].Value);
             List<int> ids = re_page_data_count(str_html);
+            if (ids.Count == 0) return -1;
             if (ids.Count > num) ids.RemoveRange(0, ids.Count - num);
             return delete_datas_by_ids(ids);
         }
