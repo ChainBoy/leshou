@@ -10,10 +10,11 @@ using System.Windows.Forms;
 using System.Text.RegularExpressions;
 using System.IO;
 using System.Net;
+using System.Threading;
 
 namespace LeShou
 {
-
+    public delegate void FlushClient();//代理
     public partial class login_form : Form
     {
         private HtmlDocument loginform = null;
@@ -45,10 +46,12 @@ namespace LeShou
         /// 验证码图片路径
         /// </summary>
         private static string code_path = ".code";
+        private string cookie = "";
 
         public login_form()
         {
             InitializeComponent();
+            //CheckForIllegalCrossThreadCalls = false;
         }
 
         void Window_Error(object sender, HtmlElementErrorEventArgs e)
@@ -261,45 +264,67 @@ namespace LeShou
 
         private void btn_delete_Click(object sender, EventArgs e)
         {
-            int nead_delete_num = (int)this.num_up_dowm_delete.Value;
-            delete_data_by_num(nead_delete_num);
+
+            Thread thread = new Thread(Delete_Flush_Thread);
+            thread.IsBackground = true;
+            thread.Start();
         }
 
+        private void Delete_Flush_Thread()
+        {
+            while (true)
+            {
+                int nead_delete_num = (int)this.num_up_dowm_delete.Value;
+                GetWebBrowseCookie();
+                delete_data_by_num(nead_delete_num, cookie);
+                break;
+            }
+        }
 
+        private void GetWebBrowseCookie()
+        {
+            if (this.webser.InvokeRequired)
+            {
+                FlushClient fc = new FlushClient(GetWebBrowseCookie);
+                this.Invoke(fc);
+            }
+            else
+            {
+                cookie = this.webser.Document.Cookie;
+            }
+        }
         /// <summary>
         /// 删除x条帖子
         /// </summary>
         /// <param name="nead_delete_num"></param>
         /// <returns></returns>
-        private int delete_data_by_num(int nead_delete_num)
+        private void delete_data_by_num(int nead_delete_num, string cookie)
         {
             int has_delete_num = 0;
             for (int i = 0; i < nead_delete_num; i++)
             {
-                int delete_result = delete_data_by_page(max_delete_page_num, nead_delete_num - has_delete_num);
+                int delete_result = delete_data_by_page(max_delete_page_num, nead_delete_num - has_delete_num, cookie);
                 if (delete_result == -1) break;
                 has_delete_num += delete_result;
                 if (has_delete_num >= nead_delete_num) break;
             }
-            return has_delete_num;
-
         }
 
         /// <summary>
         /// 删除某页的帖子
         /// </summary>
         /// <param name="page_num"></param>
-        private int delete_data_by_page(int page_num, int num = 30)
+        private int delete_data_by_page(int page_num, int num = 30, string cookie = "")
         {
             string url = delete_page_url + page_num;
-            byte[] byte_result = RequestByCookie(url, webser.Document.Cookie);
+            byte[] byte_result = RequestByCookie(url, cookie);
             string str_html = BytesToString(byte_result);
             //MatchCollection match = Regex.Matches(str_html, @"page=(\d+)", RegexOptions.Singleline);
             //if (match.Count > 0) max_page = Convert.ToInt32(match[match.Count - 1].Groups[1].Value);
             List<int> ids = re_page_data_count(str_html);
             if (ids.Count == 0) return -1;
             if (ids.Count > num) ids.RemoveRange(0, ids.Count - num);
-            return delete_datas_by_ids(ids);
+            return delete_datas_by_ids(ids, cookie);
         }
 
         /// <summary>
@@ -322,13 +347,14 @@ namespace LeShou
         /// </summary>
         /// <param name="ids"></param>
         /// <returns></returns>
-        private int delete_datas_by_ids(List<int> ids)
+        private int delete_datas_by_ids(List<int> ids, string cookie = "")
         {
             int result = 0;
             for (int i = 0; i < ids.Count; i++)
             {
                 string url = delete_url + ids[i];
-                RequestByCookie(url, this.webser.Document.Cookie);
+                RequestByCookie(url, cookie);
+                Thread.Sleep(20);
                 result++;
             }
             return result;
