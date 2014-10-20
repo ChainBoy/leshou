@@ -261,22 +261,30 @@ namespace LeShou
 
         private void btn_delete_Click(object sender, EventArgs e)
         {
-            get_delete_page(max_delete_page_num);
+            delete_data_by_page(max_delete_page_num, page_size);
         }
 
-        private void get_delete_page(int page_num)
+        private void delete_data()
         {
-            List<int> l_int = new List<int>();
-            int max_page = 1;
-            int delete_num = (int)this.num_up_dowm_delete.Value;
+            int nead_delete_num = (int)this.num_up_dowm_delete.Value;
+            int has_delete_num = 0;
+
+        }
+
+        /// <summary>
+        /// 删除某页的帖子
+        /// </summary>
+        /// <param name="page_num"></param>
+        private int delete_data_by_page(int page_num, int num)
+        {
             string url = delete_page_url + page_num;
             byte[] byte_result = RequestByCookie(url, webser.Document.Cookie);
             string str_html = BytesToString(byte_result);
-            MatchCollection match = Regex.Matches(str_html, @"page=(\d+)", RegexOptions.Singleline);
-            if (match.Count > 0) max_page = Convert.ToInt32(match[match.Count - 1].Groups[1].Value);
-
-            l_int.AddRange(re_page_data_count(str_html));
-
+            //MatchCollection match = Regex.Matches(str_html, @"page=(\d+)", RegexOptions.Singleline);
+            //if (match.Count > 0) max_page = Convert.ToInt32(match[match.Count - 1].Groups[1].Value);
+            List<int> ids = re_page_data_count(str_html);
+            if (ids.Count > num) ids.RemoveRange(0, ids.Count - num);
+            return delete_datas_by_ids(ids);
         }
 
         /// <summary>
@@ -293,6 +301,22 @@ namespace LeShou
                 l_int.Add(Convert.ToInt32(match_nid[i].Groups[1].Value));
             }
             return l_int;
+        }
+        /// <summary>
+        /// 根据id列表 删除帖子
+        /// </summary>
+        /// <param name="ids"></param>
+        /// <returns></returns>
+        private int delete_datas_by_ids(List<int> ids)
+        {
+            int result = 0;
+            for (int i = 0; i < ids.Count; i++)
+            {
+                string url = delete_url + ids[i];
+                RequestByCookie(url, this.webser.Document.Cookie);
+                result++;
+            }
+            return result;
         }
 
     }
